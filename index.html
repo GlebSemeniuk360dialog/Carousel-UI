@@ -35,6 +35,7 @@
       border: none;
       border-radius: 4px;
       padding: 10px;
+      margin-top: 5px;
     }
     .section, .card {
       background: var(--section-bg);
@@ -56,10 +57,41 @@
       font-weight: 600;
       margin-bottom: 10px;
     }
+    ul {
+      padding-left: 20px;
+    }
+    ul li {
+      margin-bottom: 5px;
+    }
+    .collapsible-content {
+      display: none;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
   <h2>🛠 Carousel JSON Generator</h2>
+
+  <div class="section">
+    <button onclick="toggleHelp()">📖 Show/Hide Instructions</button>
+    <div id="helpSection" class="collapsible-content">
+      <h3>ℹ️ How to Use</h3>
+      <ul>
+        <li>Fill in the general message <strong>Name</strong>, <strong>Language</strong>, and <strong>Category</strong>.</li>
+        <li>Customize the <strong>main message body</strong> and placeholder examples (e.g. {{1}} → "John").</li>
+        <li>Add one or more <strong>carousel cards</strong> using the ➕ Add Card button.</li>
+        <li>Each card can include:
+          <ul>
+            <li>An image URL</li>
+            <li>Body text</li>
+            <li>An optional URL button (with optional placeholder)</li>
+            <li><strong>Optional:</strong> A Quick Reply button with editable text</li>
+          </ul>
+        </li>
+        <li>The JSON will be auto-generated below as you type. Click 📋 <strong>Copy JSON</strong> to copy it.</li>
+      </ul>
+    </div>
+  </div>
 
   <div class="section">
     <label>Name:</label>
@@ -97,6 +129,11 @@
     const placeholderCount = document.getElementById('placeholderCount');
     const exampleInputs = document.getElementById('exampleInputs');
 
+    function toggleHelp() {
+      const section = document.getElementById('helpSection');
+      section.style.display = section.style.display === 'block' ? 'none' : 'block';
+    }
+
     function createExampleFields(count) {
       exampleInputs.innerHTML = '';
       for (let i = 1; i <= count; i++) {
@@ -119,7 +156,7 @@
       updateJSON();
     });
 
-    function addCard(image = '', body = '', buttonText = '', buttonURL = 'Input the URL here', exampleURL = '', includeVar = true) {
+    function addCard(image = '', body = '', buttonText = '', buttonURL = '', exampleURL = '', includeVar = true, quickReply = '') {
       const cardDiv = document.createElement('div');
       cardDiv.className = 'card';
       cardDiv.innerHTML = `
@@ -128,16 +165,18 @@
         <input type="text" class="image" value="${image}">
         <label>Body Text:</label>
         <textarea class="body">${body}</textarea>
-        <label>Button Text:</label>
+        <label>Button Text (optional):</label>
         <input type="text" class="buttonText" value="${buttonText}">
+        <label>Button URL (optional):</label>
+        <input type="text" class="buttonURL" value="${buttonURL}">
         <label>Include {{1}} in URL?</label>
         <input type="checkbox" class="includeVar" ${includeVar ? 'checked' : ''}>
-        <label>Button URL:</label>
-        <input type="text" class="buttonURL" value="${buttonURL}">
         <div class="exampleURLSection" style="display: ${includeVar ? 'block' : 'none'}">
-          <label>Example URL:</label>
+          <label>Example URL (optional):</label>
           <input type="text" class="exampleURL" value="${exampleURL}">
         </div>
+        <label>Quick Reply Button (optional):</label>
+        <input type="text" class="quickReply" value="${quickReply}">
         <button onclick="removeCard(this)">❌ Remove</button>
       `;
       cardsContainer.appendChild(cardDiv);
@@ -168,42 +207,55 @@
       document.querySelectorAll('.card').forEach(card => {
         const image = card.querySelector('.image').value;
         const body = card.querySelector('.body').value;
-        const buttonText = card.querySelector('.buttonText').value;
-        const buttonURL = card.querySelector('.buttonURL').value;
+        const buttonText = card.querySelector('.buttonText').value.trim();
+        const buttonURL = card.querySelector('.buttonURL').value.trim();
         const includeVar = card.querySelector('.includeVar').checked;
-        const exampleURL = card.querySelector('.exampleURL').value;
+        const exampleURL = card.querySelector('.exampleURL').value.trim();
+        const quickReply = card.querySelector('.quickReply').value.trim();
 
-        const cardObj = {
-          components: [
-            {
-              type: "header",
-              format: "image",
-              example: {
-                header_handle: [image]
-              }
-            },
-            {
-              type: "BODY",
-              text: body
-            },
-            {
-              type: "buttons",
-              buttons: [
-                {
-                  type: "url",
-                  text: buttonText,
-                  url: buttonURL
-                }
-              ]
+        const components = [
+          {
+            type: "header",
+            format: "image",
+            example: {
+              header_handle: [image]
             }
-          ]
-        };
+          },
+          {
+            type: "BODY",
+            text: body
+          }
+        ];
 
-        if (includeVar) {
-          cardObj.components[2].buttons[0].example = [exampleURL];
+        const buttons = [];
+
+        if (buttonText && buttonURL) {
+          const buttonObj = {
+            type: "url",
+            text: buttonText,
+            url: buttonURL
+          };
+          if (includeVar && exampleURL) {
+            buttonObj.example = [exampleURL];
+          }
+          buttons.push(buttonObj);
         }
 
-        cards.push(cardObj);
+        if (quickReply) {
+          buttons.push({
+            type: "quick_reply",
+            text: quickReply
+          });
+        }
+
+        if (buttons.length) {
+          components.push({
+            type: "buttons",
+            buttons
+          });
+        }
+
+        cards.push({ components });
       });
 
       const result = {
